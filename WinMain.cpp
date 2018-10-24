@@ -14,6 +14,8 @@ using namespace std;
 time_t t1, t2;
 long long tot = 0;
 long long gttot = 0;
+float fps = 60.0f;
+float gtfps = 120.0f;
 #endif
 namespace game_thread//用于线程通信的变量
 {
@@ -90,27 +92,19 @@ int WINAPI WinMain(HINSTANCE	hInstance,				// 当前窗口实例
 	}
 
 #ifdef FPS_TEST
-	//time_t t2, t1;
-	//long long tot = 0;
 	t1 = time(NULL);
 #endif
 
-	game_thread::entried = false;
-	//thread timing_thread(TimingThread);
-	thread calculate_thread(CalculateThread);
-	//thread render_thread(RenderThread);
-
 	ShowCursor(false);		//隐藏鼠标
-
-	game_thread::entried = true;
-	while (GetMessage(&msg, NULL, NULL, NULL) && !game_thread::finished)	//Main Loop							
+	while (true)	//Main Loop							
 	{
-		/*if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))			// 有消息在等待吗?
+		static float render_threshold = 1;
+		static float render_flag = 1;
+		static int sleep_gap = 0;
+		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))			// 若有消息，处理消息
 		{
 			if (msg.message == WM_QUIT)				// 收到退出消息?
-			{
 				break;
-			}
 			else							// 不是，处理窗口消息
 			{
 				TranslateMessage(&msg);				// 翻译消息
@@ -119,49 +113,69 @@ int WINAPI WinMain(HINSTANCE	hInstance,				// 当前窗口实例
 		}
 		else								// 如果没有消息
 		{
+			//处理特殊按键情况
 			if (keys[VK_F1])							//按 F1键可在全屏和窗口模式之间切换
 			{
-				keys[VK_F1] = FALSE;				// 若是，使对应的Key数组中的值为 FALSE
+				keys[VK_F1] = FALSE;			// 若是，使对应的Key数组中的值为 FALSE
 				DestroyGLWindow();				// 销毁当前的窗口
-				fullscreen = !fullscreen;				// 切换 全屏 / 窗口 模式
+				fullscreen = !fullscreen;			// 切换 全屏 / 窗口 模式
 														// 重建 OpenGL 窗口
 				if (!CreateGLWindow("NeHe's OpenGL 程序框架", 640 * 1.5, 480 * 1.5, 16, fullscreen))
 				{
 					return 0;				// 如果窗口未能创建，程序退出
 				}
 			}
-		}*///lagecy codes when using peekmessage
-		if (msg.message == WM_DESTROY)				// 收到退出消息?
-			break;
-		TranslateMessage(&msg);				// 翻译消息
-		DispatchMessage(&msg);				// 发送消息
-		if (keys[VK_F1])							//按 F1键可在全屏和窗口模式之间切换
-		{
-			keys[VK_F1] = FALSE;			// 若是，使对应的Key数组中的值为 FALSE
-			DestroyGLWindow();				// 销毁当前的窗口
-			fullscreen = !fullscreen;			// 切换 全屏 / 窗口 模式
-			// 重建 OpenGL 窗口
-			if (!CreateGLWindow("NeHe's OpenGL 程序框架", 640 * 1.5, 480 * 1.5, 16, fullscreen))
+			if (keys[VK_ESCAPE])				// ESC 按下了么?
 			{
-				return 0;				// 如果窗口未能创建，程序退出
+				cur_free = !cur_free;
+				SetCursor(LoadCursor(NULL, IDC_ARROW));
+				ShowCursor(cur_free);
+				keys[VK_ESCAPE] = false;
 			}
-		}
-		//Act();
-		Render();
-	}
 
-	//结束子线程
-	game_thread::finished = true;
-	//timing_thread.join();
-	calculate_thread.join();
-	//render_thread.join();
+			//游戏时间正规化
+			t2 = time(NULL);
+			if ((t2 - t1) >= 1)//周期性计算/更新游戏帧率和帧率
+			{
+				gtfps = (float)gttot / (t2 - t1);
+				fps = (float)tot / (t2 - t1);
+				t1 = t2;
+				tot = 0;
+				gttot = 0;
+				if (gtfps > 110)
+				{
+					if (render_threshold > 1)
+						render_threshold -= 0.1f;
+					else
+						sleep_gap++;
+				}
+				if (gtfps < 90)
+				{
+					if (sleep_gap) sleep_gap--;
+					else if (render_threshold <= 3)render_threshold += 0.1;
+				}
+			}
+			//for (int i = 0; i < 1500000; i++);
+			Act();gttot++;
+			if (sleep_gap) Sleep(sleep_gap);
+			render_flag += 1;
+			if (render_flag >= render_threshold)
+			{
+				Render();tot++;
+				render_flag -= render_threshold;
+			}
+			
+			
+		}
+	}
+		
+	
 #ifdef FPS_TEST
 	t2 = time(NULL);
 	ofstream fout("fps_test_output.txt");
-	fout << "time " << t2 - t1 << endl;
-	fout << "total frames rendered: " << tot << endl;
-	fout << "avg fps: " << (float)(tot) / (t2 - t1) << endl;
-	fout << "avg gtfps: " << (float)(gttot) / (t2 - t1) << endl;
+
+	fout << "avg fps: " << fps << endl;
+	fout << "avg gtfps: " << gtfps << endl;
 	fout.close();
 #endif
 	// 关闭程序
@@ -179,16 +193,8 @@ LRESULT CALLBACK WndProc(HWND hWnd,					// 窗口的句柄
 	switch (uMsg)								// 检查Windows消息
 	{
 	case WM_ACTIVATE:						// 监视窗口激活消息
-		active =!HIWORD(wParam);			//一种比较简洁的写法
-		/*if (!HIWORD(wParam))				// 检查最小化状态
-		{
-			active = true;					// 程序处于激活状态
-		}
-		else
-		{
-			active = false;					// 程序不再激活
-		}*/
-		return 0;						// 返回消息循环
+		active =!HIWORD(wParam);			//一种比较简洁的写法 检查最小化状态
+		return 0;									// 返回消息循环
 
 	case WM_SYSCOMMAND:						// 系统中断命令
 		if (wParam == SC_SCREENSAVE || wParam == SC_MONITORPOWER)						// 检查系统调用
@@ -199,15 +205,6 @@ LRESULT CALLBACK WndProc(HWND hWnd,					// 窗口的句柄
 
 	case WM_KEYDOWN:				// 有键按下么?
 		keys[wParam] = true;			// 如果是，设为TRUE
-		//监视ESC键 因为ESC控制着鼠标的隐藏与否，而子线程中无法隐藏/显现鼠标，因此只能在
-		//主线程中的这里控制
-		if (keys[VK_ESCAPE])				// ESC 按下了么?
-		{
-			cur_free = !cur_free;
-			SetCursor(LoadCursor(NULL, IDC_ARROW));
-			ShowCursor(cur_free);
-			keys[VK_ESCAPE] = false;
-		}
 		return 0;								// 返回
 	case WM_KEYUP:					// 有键按下么?
 		keys[wParam] = false;			// 如果是，设为TRUE
@@ -237,7 +234,7 @@ LRESULT CALLBACK WndProc(HWND hWnd,					// 窗口的句柄
 		extern Map map;
 		map.Save();
 		PostQuitMessage(0);					// 发出退出消息
-		game_thread::finished = true;
+		//game_thread::finished = true;
 		return 0;						// 返回
 	}
 	// 向 DefWindowProc传递所有未处理的消息。
