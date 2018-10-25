@@ -17,14 +17,6 @@ long long gttot = 0;
 float fps = 60.0f;
 float gtfps = 120.0f;
 #endif
-namespace game_thread//用于线程通信的变量
-{
-	bool entried{ false };
-	bool finished{ false };//线程是否开始、是否结束的标志
-
-	bool calculate_flag{ false };//是否要calculate
-	bool render_flag{ false };//是否要render
-}
 
 //全局变量的定义
 MOUSEMSG mouse;									// 鼠标信息
@@ -164,8 +156,6 @@ int WINAPI WinMain(HINSTANCE	hInstance,				// 当前窗口实例
 				Render();tot++;
 				render_flag -= render_threshold;
 			}
-			
-			
 		}
 	}
 		
@@ -435,91 +425,4 @@ void DestroyGLWindow()							// 正常销毁窗口
 		MessageBox(NULL, "不能注销窗口类。", "关闭错误", MB_OK | MB_ICONINFORMATION);
 		hInstance = NULL;							// 将 hInstance 设为 NULL
 	}
-}
-
-void TimingThread()
-{
-
-	while (!(game_thread::entried)) Sleep(10);//等待直到收到主线程的命令
-	while (!game_thread::finished)
-	{
-		//if (!active) Sleep(10);
-
-		game_thread::calculate_flag = true;//计时器，每8ms发出一个calculate信息
-		Sleep(8);
-	
-	}
-}
-void CalculateThread()
-{
-	while (!game_thread::entried) Sleep(10);
-	static int dt = 8;
-	while (!game_thread::finished)
-	{	
-		/*if (!game_thread::calculate_flag) 
-		{
-			Sleep(10); 
-			continue;
-		}*/
-		
-		Sleep(8);
-		Act();
-#ifdef FPS_TEST
-		gttot++;
-#endif
-		game_thread::calculate_flag = false;//若calculate信息存在，则执行一次calculate
-		game_thread::render_flag = true;//并告诉render线程信息已经更新，有必要重新渲染了
-	}
-}
-void RenderThread()
-{
-	while (!game_thread::entried) Sleep(10);//等待直到收到主线程的命令
-
-	/*注意：OpenGL是以线程为单位的，也就是说每一个线程会有不同的OpenGL渲染上下文。
-	由于窗口是在主线程中创建的，因此之前创建的HRC（OpenGL渲染上下文）是跟着主线程走的
-	如果想要在子线程中渲染，就必须将两个线程中的HRC做一些同步处理，而且子线程中的OpenGL需要
-	在某些部分单独再初始化一遍
-	/或直接在子线程中初始化。（设定透射方式，加载纹理等）
-	最后的一些释放工作也要在这个线程中再做一遍*/
-	// 创建渲染context
-	HGLRC hRC_RTH = wglCreateContext(hDC);		//hRC for the Rendering THread
-	wglMakeCurrent(hDC, hRC_RTH);
-	// 分享资源
-	wglShareLists(wglGetCurrentContext(), hRC_RTH);
-
-	if (!InitGL())								// 初始化新建的GL窗口
-	{
-		DestroyGLWindow();							// 重置显示区
-		MessageBox(NULL, "初始化OpenGL失败", "ERROR", MB_OK | MB_ICONEXCLAMATION);
-		return;							// 返回 FALSE
-	}
-	if (!InitGame())								// 初始化新建的GL窗口
-	{
-		DestroyGLWindow();							// 重置显示区
-		MessageBox(NULL, "初始化游戏数据失败", "ERROR", MB_OK | MB_ICONEXCLAMATION);
-		return;							// 返回 FALSE
-	}
-	ShowWindow(hWnd, SW_SHOW);					// 显示窗口
-	SetForegroundWindow(hWnd);						// 略略提高优先级
-	SetFocus(hWnd);										// 设置键盘的焦点至此窗口
-	OnResize(wnd_width, wnd_height);					// 设置透视参数
-	//ShowCursor(false);		//隐藏鼠标
-
-	while (!game_thread::finished)
-	{
-		if (!game_thread::render_flag)
-		{
-			Sleep(3);
-			continue;
-		}
-		Render();//若calculate信息存在，则执行一次render
-		game_thread::render_flag = false;
-#ifdef FPS_TEST
-		tot++;
-#endif
-	}
-
-	// 释放本线程额外请求的opengl RC
-	wglMakeCurrent(NULL, NULL);
-	wglDeleteContext(hRC_RTH);
 }
