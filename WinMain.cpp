@@ -10,27 +10,22 @@
 #include"Map.h"
 using namespace std;
 
-#ifdef FPS_TEST
-time_t t1, t2;
-long long tot = 0;
-long long gttot = 0;
-float fps = 60.0f;
-float gtfps = 120.0f;
-#endif
+
+
 
 //全局变量的定义
 MOUSEMSG mouse;									// 鼠标信息
 bool	keys[256];										// 保存键盘按键的数组		
 
-bool active = true;										// 窗口的活动标志，缺省为TRUE
-bool fullscreen = true;									// 全屏标志缺省，缺省设定成全屏模式
-bool cur_free = false;									// 鼠标是否自由，缺省为false
-int wnd_width = 0;									// 窗体宽度和高度
-int wnd_height = 0;
+bool active{ false };										// 窗口的活动标志，缺省为TRUE
+bool fullscreen{ true };									// 全屏标志缺省，缺省设定成全屏模式
+bool cur_free{ false };									// 鼠标是否自由，缺省为false
+int wnd_width{ 0 };									// 窗体宽度和高度
+int wnd_height{ 0 };
 
-HGLRC			hRC = NULL;						// 窗口着色描述表句柄
-HDC				hDC = NULL;						// OpenGL渲染描述表句柄
-HWND			hWnd = NULL;						// 保存我们的窗口句柄
+HGLRC			hRC{ NULL };						// 窗口着色描述表句柄
+HDC				hDC{ NULL };						// OpenGL渲染描述表句柄
+HWND			hWnd{ NULL };						// 保存我们的窗口句柄
 HINSTANCE		hInstance;							// 保存程序的实例
 
 int WINAPI WinMain(HINSTANCE	hInstance,				// 当前窗口实例
@@ -54,14 +49,12 @@ int WINAPI WinMain(HINSTANCE	hInstance,				// 当前窗口实例
 	//fout << m*n<<n*m;
 	return 0;
 #else
-	MSG		msg;								// Windowsx消息结构
-
-	// 提示用户选择运行模式
+	// 游戏前准备：提示用户选择运行模式
 	if (MessageBox(NULL, "你想在全屏模式下运行么？", "设置全屏模式", MB_YESNO | MB_ICONQUESTION) == IDNO)
 	{
 		fullscreen = FALSE;						// FALSE为窗口模式
 	}
-	// 创建OpenGL窗口
+	// 游戏前准备：创建OpenGL窗口
 	int width = GetSystemMetrics(SM_CXSCREEN);
 	int height = GetSystemMetrics(SM_CYSCREEN);
 	if (!CreateGLWindow("NeHe's OpenGL程序框架", width,height, 16, fullscreen))
@@ -69,7 +62,7 @@ int WINAPI WinMain(HINSTANCE	hInstance,				// 当前窗口实例
 		return 0;							// 失败退出
 	}
 	
-	//load texture
+	//游戏前准备：加载资源文件,i.e. load texture
 	if (!InitGL())								// 初始化新建的GL窗口
 	{
 		DestroyGLWindow();							// 重置显示区
@@ -83,11 +76,24 @@ int WINAPI WinMain(HINSTANCE	hInstance,				// 当前窗口实例
 		return FALSE;							// 返回 FALSE
 	}
 
-#ifdef FPS_TEST
-	t1 = time(NULL);
-#endif
+	ShowCursor(false);		//游戏前准备：隐藏鼠标
 
-	ShowCursor(false);		//隐藏鼠标
+	//计算帧率和游戏帧率所需要的变量。
+	//每秒重新计算[t1,t2]时间段中的帧率和游戏帧率
+	/*这里要引入一个新概念：游戏帧(game frame)。
+	一个游戏帧是Act()模拟一次游戏运行的过程。
+	重要的是，游戏帧率(gfps)应当保持不变：你不希望帧率是100时，相比帧率为50时，僵尸会以两倍的速度来攻击你;
+	你也不希望当帧率是30时，你在游戏中走路的速度是帧率是60时的一半。
+	这就要求普通帧（即渲染帧）不能完全与游戏帧同步。这也就是游戏时间正规化的目的。
+	*/
+	time_t t1, t2;
+	int frm_cnt{ 0 };		//时间段中渲染的总帧数
+	int gfrm_cnt{ 0 };		//~总游戏帧数
+	float fps{ 60.0f };		//帧率，初始化为60
+	float gfps{ 100.0f };	//游戏帧率，初始化为100，也就是预期gfps
+	t1 = time(NULL);
+
+	MSG		msg;			// Windowsx消息结构
 	while (true)	//Main Loop							
 	{
 		static float render_threshold = 1;
@@ -129,49 +135,45 @@ int WINAPI WinMain(HINSTANCE	hInstance,				// 当前窗口实例
 			t2 = time(NULL);
 			if ((t2 - t1) >= 1)//周期性计算/更新游戏帧率和帧率
 			{
-				gtfps = (float)gttot / (t2 - t1);
-				fps = (float)tot / (t2 - t1);
+				gfps = (float)gfrm_cnt / (t2 - t1);
+				fps = (float)frm_cnt / (t2 - t1);
 				t1 = t2;
-				tot = 0;
-				gttot = 0;
-				if (gtfps > 110)
+				frm_cnt = 0;
+				gfrm_cnt = 0;
+				if (gfps > 110)
 				{
 					if (render_threshold > 1)
 						render_threshold -= 0.1f;
 					else
 						sleep_gap++;
 				}
-				if (gtfps < 90)
+				if (gfps < 90)
 				{
 					if (sleep_gap) sleep_gap--;
 					else if (render_threshold <= 3)render_threshold += 0.1;
 				}
 			}
 			//for (int i = 0; i < 1500000; i++);
-			Act();gttot++;
+			Act();gfrm_cnt++;//模拟游戏帧
 			if (sleep_gap) Sleep(sleep_gap);
 			render_flag += 1;
 			if (render_flag >= render_threshold)
 			{
-				Render();tot++;
+				Render();frm_cnt++;//渲染
 				render_flag -= render_threshold;
 			}
 		}
-	}
+	}//end of Main Loop
 		
-	
 #ifdef FPS_TEST
-	t2 = time(NULL);
 	ofstream fout("fps_test_output.txt");
-
 	fout << "avg fps: " << fps << endl;
-	fout << "avg gtfps: " << gtfps << endl;
+	fout << "avg gfps: " << gfps << endl;
 	fout.close();
 #endif
 	// 关闭程序
 	DestroyGLWindow();							// 销毁窗口
 	return msg.wParam;							// 退出程序
-
 #endif//DEBUG标记
 }
 
@@ -186,24 +188,24 @@ LRESULT CALLBACK WndProc(HWND hWnd,					// 窗口的句柄
 		active =!HIWORD(wParam);			//一种比较简洁的写法 检查最小化状态
 		return 0;									// 返回消息循环
 
-	case WM_SYSCOMMAND:						// 系统中断命令
-		if (wParam == SC_SCREENSAVE || wParam == SC_MONITORPOWER)						// 检查系统调用
+	case WM_SYSCOMMAND:				// 系统中断命令
+		if (wParam == SC_SCREENSAVE || wParam == SC_MONITORPOWER)			// 检查系统调用
 		case SC_SCREENSAVE:				// 屏保要运行?
-		case SC_MONITORPOWER:				// 显示器要进入节电模式?
-		return 0;					// 阻止发生
-		break;							// 退出
+		case SC_MONITORPOWER:			// 显示器要进入节电模式?
+		return 0;									// 阻止发生
+		break;										// 退出
 
-	case WM_KEYDOWN:				// 有键按下么?
-		keys[wParam] = true;			// 如果是，设为TRUE
-		return 0;								// 返回
-	case WM_KEYUP:					// 有键按下么?
-		keys[wParam] = false;			// 如果是，设为TRUE
-		return 0;								// 返回
-	case WM_MOUSEMOVE:						//鼠标消息
-		mouse.x = LOWORD(lParam);			//获得鼠标位置
+	case WM_KEYDOWN:						// 有键按下么?
+		keys[wParam] = true;					// 如果是，设为TRUE
+		return 0;									// 返回
+	case WM_KEYUP:							// 有键弹起么?
+		keys[wParam] = false;					// 如果是，设为TRUE
+		return 0;									// 返回
+	case WM_MOUSEMOVE:					//鼠标消息
+		mouse.x = LOWORD(lParam);		//获得鼠标位置
 		mouse.y = HIWORD(lParam);
 		return 0;
-	case WM_LBUTTONDOWN:					//其他鼠标消息：左右键
+	case WM_LBUTTONDOWN:				//其他鼠标消息：左右键
 		mouse.LButton = true;
 		return 0;
 	case WM_LBUTTONUP:
@@ -218,16 +220,15 @@ LRESULT CALLBACK WndProc(HWND hWnd,					// 窗口的句柄
 
 	case WM_SIZE:						// 调整OpenGL窗口大小
 		OnResize(LOWORD(lParam), HIWORD(lParam));		// LoWord=Width,HiWord=Height
-		return 0;						// 返回
+		return 0;							// 返回
 		
-	case WM_CLOSE:							// 收到Close消息?
+	case WM_CLOSE:					// 收到Close消息?
 		extern Map map;
 		map.Save();
-		PostQuitMessage(0);					// 发出退出消息
-		//game_thread::finished = true;
-		return 0;						// 返回
+		PostQuitMessage(0);			// 发出退出消息
+		return 0;							// 返回
 	}
-	// 向 DefWindowProc传递所有未处理的消息。
+	// 向 DefWindowProc传递所有未处理的消息
 	return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 

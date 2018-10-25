@@ -6,13 +6,10 @@
 #include<vector>
 #include"Matrix.h"
 #else
-
 #endif
-
 
 #define FPS_TEST
 #include<ctime>
-
 #include<Windows.h>
 #include<string>
 using namespace std;
@@ -25,8 +22,8 @@ struct MOUSEMSG	// 鼠标信息结构体
 }; 
 //为了避免重定义的链接错误，同时避免在每个cpp文件中都再extern一遍所有变量的苦恼，因而采取这样的方式：
 //在WinMain.cpp中实际地定义变量，在头文件中extern一下变量，就相当于在所有cpp中都引用了一遍extern xx.
-extern MOUSEMSG mouse;					// 鼠标信息
-extern bool	keys[256];										// 保存键盘按键的数组		
+extern MOUSEMSG mouse;							// 鼠标信息
+extern bool	keys[256];								// 保存键盘按键的数组		
 
 extern bool active;										// 窗口的活动标志，缺省为TRUE
 extern bool fullscreen;									// 全屏标志缺省，缺省设定成全屏模式
@@ -44,11 +41,6 @@ LRESULT CALLBACK WndProc(HWND hWnd,					// 窗口的句柄
 										UINT	uMsg,							// 窗口的消息
 										WPARAM wParam,				// 附加的消息内容
 										LPARAM	 lParam);
-//multi threads functions
-void TimingThread();
-void CalculateThread();
-void RenderThread();
-
 
 void DestroyGLWindow();
 bool CreateGLWindow(string title, int width, int height, int bits, bool fullscreenflag);
