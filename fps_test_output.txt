@@ -1,4 +1,2 @@
-time 18
-total frames rendered: 0
-avg fps: 0
-avg gtfps: 65.2222
+avg fps: 102
+avg gfps: 112
