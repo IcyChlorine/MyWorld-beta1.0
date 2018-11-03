@@ -10,9 +10,6 @@
 #include"Map.h"
 using namespace std;
 
-
-
-
 //全局变量的定义
 MOUSEMSG mouse;									// 鼠标信息
 bool	keys[256];										// 保存键盘按键的数组		

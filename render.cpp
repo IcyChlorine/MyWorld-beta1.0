@@ -66,14 +66,24 @@ void RenderGUI()
 	glEnd();
 
 	extern int wnd_height;
+	extern int wnd_width;
+	//glDisable(GL_DEPTH_TEST);
+	//glMatrixMode(GL_PROJECTION);
+	//gluOrtho2D(-wnd_width / 2, wnd_width / 2, -wnd_height / 2, wnd_height / 2);
 	
 	glBegin(GL_QUADS);//画物品栏
 	glColor3f(0.7f, 0.7f, 0.7f);
-	glVertex3f(PXLTOGL(-5 * ITEM_BOX_WIDTH), PXLTOGL(-wnd_height/2), -0.1f);
-	glVertex3f(PXLTOGL(5 * ITEM_BOX_WIDTH), PXLTOGL(-wnd_height/2), -0.1f);
-	glVertex3f(PXLTOGL(5 * ITEM_BOX_WIDTH), PXLTOGL(-wnd_height / 2+ITEM_BOX_WIDTH), -0.1f);
+	/*glVertex3f(-5 * ITEM_BOX_WIDTH, -wnd_height/2,0.0f);
+	glVertex3f(5 * ITEM_BOX_WIDTH, -wnd_height/2,0.0f);
+	glVertex3f(5 * ITEM_BOX_WIDTH, -wnd_height / 2+ITEM_BOX_WIDTH,0.0f);
+	glVertex3f(-5 * ITEM_BOX_WIDTH, -wnd_height / 2 + ITEM_BOX_WIDTH,0.0f);*/
+	glVertex3f(PXLTOGL(-5 * ITEM_BOX_WIDTH), PXLTOGL(-wnd_height / 2), -0.1f);
+	glVertex3f(PXLTOGL(5 * ITEM_BOX_WIDTH), PXLTOGL(-wnd_height / 2), -0.1f);
+	glVertex3f(PXLTOGL(5 * ITEM_BOX_WIDTH), PXLTOGL(-wnd_height / 2 + ITEM_BOX_WIDTH), -0.1f);
 	glVertex3f(PXLTOGL(-5 * ITEM_BOX_WIDTH), PXLTOGL(-wnd_height / 2 + ITEM_BOX_WIDTH), -0.1f);
 	glEnd();
+	glEnable(GL_DEPTH_TEST);
+	//OnResize(wnd_width, wnd_height);
 	extern int selected_item;
 	glBegin(GL_QUADS);
 	glColor3f(1.0f, 1.0f, 1.0f);
@@ -170,6 +180,7 @@ void Cube(float x, float y, float z, float a, int id)
 	return;
 }
 
+float fogColor[4] = { 0.5f, 0.5f, 0.5f, 1.0f };					// 雾的颜色
 float LightAmbient[] = { 0.5f, 0.5f, 0.5f, 1.0f }; 				// 环境光参数
 float LightDiffuse[] = { 1.0f, 1.0f, 1.0f, 1.0f };					// 漫射光参数
 float LightPosition[] = { -1.0f, 2.0f, 3.0f, 0.0f };				// 光源位置
@@ -182,12 +193,25 @@ bool InitGL()								// 此处开始对OpenGL进行所有设置
 
 	glClearColor(0.2f, 0.35f, 0.8f, 0.0f);			// 蓝色背景			
 
+	//深度测试
 	glClearDepth(1.0f);								// 设置深度缓存//？？？？？
 	glEnable(GL_DEPTH_TEST);						// 启用深度测试
 	glDepthFunc(GL_LEQUAL);						// 所作深度测试的类型
 
+	//透视修正
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);			// 告诉系统对透视进行修正
 
+	//雾
+	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);			// 设置背景的颜色为雾气的颜色
+	glFogi(GL_FOG_MODE, GL_LINEAR);		// 设置雾气的模式
+	glFogfv(GL_FOG_COLOR, fogColor);			// 设置雾的颜色
+	glFogf(GL_FOG_DENSITY, 0.05f);			// 设置雾的密度
+	glHint(GL_FOG_HINT, GL_DONT_CARE);			// 设置系统如何计算雾气
+	glFogf(GL_FOG_START, 10.0f);				// 雾气的开始位置
+	glFogf(GL_FOG_END, 16.0f);				// 雾气的结束位置
+	glEnable(GL_FOG);					// 使用雾气
+
+	//光照设置
 	glLightfv(GL_LIGHT1, GL_AMBIENT, LightAmbient);				// 设置环境光
 	glLightfv(GL_LIGHT1, GL_DIFFUSE, LightDiffuse);				// 设置漫射光
 	glLightfv(GL_LIGHT1, GL_POSITION, LightPosition);			// 设置光源位置
